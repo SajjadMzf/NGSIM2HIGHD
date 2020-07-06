@@ -2,13 +2,15 @@
 ID = "Vehicle_ID"
 FRAME = "Frame_ID"
 TOTAL_FRAME = "Total_Frames"
-GLOBAL_TIME = "Global_Time"
-X = "Local_X" # front of vehicle.feet
-Y = "Local_Y" # center of vehicle,feet
-GLOBAL_X = "Global_X"
-GLOBAL_Y = "Global_Y"
-WIDTH = "v_length" # feet
-HEIGHT = "v_Width" #feet
+GLOBAL_TIME = "Global_Time" # milisecond
+# Vehicles travel from top of the image to the bottom
+# X in ngsim = Y in HighD, Width in ngsim = hight in highd
+X = "Local_X" # front center of vehicle.feet w.r.t left edge of image
+Y = "Local_Y" # front center of vehicle,feet w.r.t. highway entry
+GLOBAL_X = "Global_X" # feet
+GLOBAL_Y = "Global_Y" # feet
+LENGTH = "v_length" # feet # equal to highd WIDTH
+WIDTH = "v_Width" #feet # equal to highd Height
 CLASS = "v_Class" #1: motorcycle, 2: auto, 3: truck 
 VELOCITY = "v_VEL" #feet/s
 ACCELERATION = "v_Acc" # feet/s^2
@@ -22,5 +24,5 @@ INT_ID = "Int_ID"
 SECTION_ID = "Section_ID"
 DIRECTION = "Direction"
 MOVEMENT = "Movement"
-DHW = "Space_Headway" # Distance from the front-centere of a vehicle to the fron-center of the preceding
+DHW = "Space_Headway" # Distance from the front-centere of a vehicle to the fron-center of the preceding, feet
 THW = "Time_Headway" # A value of 9999.99 means vehicle speed is zero
