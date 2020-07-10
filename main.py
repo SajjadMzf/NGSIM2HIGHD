@@ -1,10 +1,14 @@
 from NGSIM2HighD import NGSIM2HighD
 
-ngsim_dataset =  "../../Dataset/NGSIM/Next_Generation_Simulation__NGSIM__Vehicle_Trajectories_and_Supporting.csv"
+ngsim_dataset_dir =  "../../Dataset/NGSIM/Traj_data/"
+ngsim_dataset_files = ['trajectories-0400-0415.csv', 
+            'trajectories-0500-0515.csv',
+            'trajectories-0515-0530.csv',
+            'trajectories-0750am-0805am.csv',
+            'trajectories-0805am-0820am.csv',
+            'trajectories-0820am-0835am.csv']
 export_dir = "./exported_ngsim/"
-locations = ['us-101']#, 'i-80']
-#TODO: Test with other locations
-converter = NGSIM2HighD(ngsim_dataset, export_dir, locations)
-#converter.save_locations()
+converter = NGSIM2HighD(ngsim_dataset_dir, export_dir, ngsim_dataset_files)
+converter.save_locations()
 converter.load_locations()
 converter.convert_tracks_info()

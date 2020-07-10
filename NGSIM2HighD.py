@@ -4,17 +4,17 @@ import numpy as np
 import HighD_Columns as HC 
 import NGSIM_Columns as NC 
 class NGSIM2HighD:
-    def __init__(self,ngsim_csv_file_dir, ngsim_export_dir, locations):
+    def __init__(self,ngsim_csv_file_dir, ngsim_export_dir, files):
         self.ngsim_csv_file_dir = ngsim_csv_file_dir
         self.ngsim_export_dir = ngsim_export_dir
-        self.locations = locations
+        self.files = files
         self.ngsim = []
         
 
     def save_locations(self):
         # TODO: Assert the loaded dataset has the required columns
         df = pandas.read_csv(self.ngsim_csv_file_dir)
-        for i, location in enumerate(self.locations):
+        for i, location in enumerate(self.files):
             self.ngsim.append(df[df[NC.LOCATION]==location])
             self.ngsim[i] = self.ngsim[i].drop(
                             columns = [
@@ -38,7 +38,7 @@ class NGSIM2HighD:
             self.ngsim[i].to_csv(location+ ".csv", index = False)
     def load_locations(self):
         self.ngsim = []
-        for location in self.locations:
+        for location in self.files:
             self.ngsim.append(pandas.read_csv(location+'.csv'))
 
     def convert_tracks_info(self):
@@ -47,7 +47,7 @@ class NGSIM2HighD:
             2. Modify Existing Coloumns:
             3. Compute New Coloumns: 
         """
-        for i, location in enumerate(self.locations):  
+        for i, location in enumerate(self.files):  
             ngsim_columns = self.ngsim[i].columns
             ngsim_array = self.ngsim[i].to_numpy()
             NC_dict = {}
@@ -256,7 +256,14 @@ class NGSIM2HighD:
         # TODO: Export static info from NGSIM
         return 0
     def convert_meta_info(self):
-        # TODO: Export meta info from NGSIM
+        # TODO: Export following meta features from NGSIM:
+        #  SPEED_LIMIT, MONTH, WEEKDAY, START_TIME, DURATION, TOTAL_DRIVEN_DISTANCE, TOTAL_DRIVEN_TIME, N_CARS, N_TRUCKS
+        for i,location in enumeratE(self.files):
+            ngsim_transformed = pandas.read_csv(location+'_transformed.csv')
+            meta_columns = [HC.ID, HC.FRAME_RATE, HC.LOCATION_ID, HC.N_VEHICLES, HC.UPPER_LANE_MARKINGS, HC.LOWER_LANE_MARKINGS]
+            # Note: Upper lanes are not recorded in NGSIM, we arbitrary set some values to them.
+            meta_data = [i, 10, i, ngsim_transformed[HC.TRACK_ID].max(), ]
+            meta = pandas.DataFrame(meta_data, columns = meta_columns)
         return 0
     def save(self):
-        return 0
+        return 0e
