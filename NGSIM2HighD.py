@@ -192,38 +192,32 @@ class NGSIM2HighD:
 
     
     def convert_static_info(self):
-        # TODO: Export static info from NGSIM
+        # TODO:  Export following meta features from NGSIM:
+        #  TRAVELED_DISTANCE, MIN_X_VELOCITY, MAX_X_VELOCITY, MEAN_X_VELOCITY, MIN_DHW, MIN_THW, MIN_TTC, NUMBER_LANE_CHANGES
         for i,traj_file in enumerate(self.files):
             ngsim_transformed = pandas.read_csv(self.ngsim_csv_file_dir + traj_file + '_transformed.csv')
-            meta_columns = [HC.ID, HC.FRAME_RATE, HC.LOCATION_ID, HC.N_VEHICLES, HC.UPPER_LANE_MARKINGS, HC.LOWER_LANE_MARKINGS]
-            ngsim_transformed = ngsim_transformed.sort_values(by=[HC.LANE_ID])
-            max_lane = int(ngsim_transformed[HC.LANE_ID].max())
+            static_columns = [HC.INITIAL_FRAME, HC.FINAL_FRAME, HC.NUM_FRAMES, NC.CLASS, HC.DRIVING_DIRECTION]
+            ngsim_transformed = ngsim_transformed.sort_values(by=[HC.TRACK_ID])
+            max_track_id = int(ngsim_transformed[HC.TRACK_ID].max())
             ngsim_columns = ngsim_transformed.columns
             ngsim_array = ngsim_transformed.to_numpy()
             HC_dict = {}
             for i,c in enumerate(ngsim_columns):
                 HC_dict[c] = i
+            static_data = np.zeros((max_track_id, len(static_columns)))
             
-            lower_lanes = np.zeros((max_lane+1))
-            average_y = np.zeros((max_lane))
-            for lane in range(max_lane):
-                lane_id = lane+1
-                average_y[lane] = np.mean(ngsim_array[ngsim_array[:,HC_dict[HC.LANE_ID]] == lane_id, HC_dict[HC.Y]])
-            
-            for lane in range(max_lane+1):
-                lane_id = lane+1
-                if lane_id ==1 or lane_id == max_lane+1:
-                    continue
-                lower_lanes[lane] = average_y[lane-1] + (average_y[lane] - average_y[lane-1])/2
-            lower_lanes[0] = lower_lanes[1] - 2*(lower_lanes[1] - average_y[0])
-            lower_lanes[-1] = lower_lanes[-2] + 2*(average_y[-1] - lower_lanes[-2])
-            upper_lane = np.array([lower_lanes[-1]])
-            print("Estimated Lower Lane Markings: {}".format(lower_lanes))
-            # Note: Upper lanes are not recorded in NGSIM, we arbitrary set some values to them.
-            meta_data = [i, 10, i, ngsim_transformed[HC.TRACK_ID].max(), upper_lane.tostring(), lower_lanes.tostring()]
-            print(meta_data)
-            meta = pandas.DataFrame(data = meta_data, columns = meta_columns)
-            meta.to_csv(self.ngsim_csv_file_dir + 'meta_'+traj_file, index = False)
+            for itr in range(max_track_id):
+                track_id = itr+1
+                cur_track_data = ngsim_array[ngsim_array[:, HC_dict[HC.TRACK_ID]==track_id]] 
+                initial_frame = min(cur_track_data[:,HC_dict[HC.FRAME]])
+                final_frame = max(cur_track_data[:,HC_dict[HC.FRAME]])
+                num_frame = final_frame - initial_frame
+                v_class = cur_track_data[0, HC_dict[NC.CLASS]]
+                driving_dir = 2
+                static_data[itr,:] = [initial_frame, final_frame, num_frame, v_class, driving_dir]
+
+            static = pandas.DataFrame(data = static_data, columns = static_columns)
+            static.to_csv(self.ngsim_csv_file_dir + 'static_'+traj_file, index = False)
     def convert_meta_info(self):
         # TODO: Export following meta features from NGSIM:
         #  SPEED_LIMIT, MONTH, WEEKDAY, START_TIME, DURATION, TOTAL_DRIVEN_DISTANCE, TOTAL_DRIVEN_TIME, N_CARS, N_TRUCKS
