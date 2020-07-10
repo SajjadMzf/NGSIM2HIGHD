@@ -9,6 +9,5 @@ ngsim_dataset_files = ['trajectories-0400-0415.csv',
             'trajectories-0820am-0835am.csv']
 export_dir = "./exported_ngsim/"
 converter = NGSIM2HighD(ngsim_dataset_dir, export_dir, ngsim_dataset_files)
-converter.save_locations()
-converter.load_locations()
-converter.convert_tracks_info()
+#converter.convert_tracks_info()
+converter.convert_meta_info()
