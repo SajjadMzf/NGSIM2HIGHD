@@ -24,16 +24,18 @@ class NGSIM2HighD:
                             columns = [
                                 NC.GLOBAL_X, 
                                 NC.GLOBAL_Y,
-                                NC.GLOBAL_TIME
-                                #NC.PRECEDING_ID,
-                                #NC.FOLLOWING_ID,
+                                NC.GLOBAL_TIME,
+                                NC.PRECEDING_ID,
+                                NC.FOLLOWING_ID,
                                 ])
+            self.ngsim[i] = self.ngsim[i].sort_values([NC.ID, NC.FRAME], ascending = [1, 1])
             ngsim_columns = self.ngsim[i].columns
             ngsim_array = self.ngsim[i].to_numpy()
             NC_dict = {}
             for i,c in enumerate(ngsim_columns):
                 NC_dict[c] = i
-            
+        # The vehicles' IDs are not continuous in NGSIM dataset
+            ngsim_array = self.correct_vehicle_ids(ngsim_array, NC_dict)
             ngsim_array, SVC_dict = self.transform_frame_features(ngsim_array, NC_dict)
             
             highD_columns = [None]* (len(ngsim_columns) + len(SVC_dict))
@@ -41,8 +43,6 @@ class NGSIM2HighD:
             highD_columns[NC_dict[NC.CLASS]] = NC.CLASS
             highD_columns[NC_dict[NC.VELOCITY]] = NC.VELOCITY # Note: Velocity is changed from feet/s to m/s
             highD_columns[NC_dict[NC.ACCELERATION]] = NC.ACCELERATION # Note: Acceleration is changed from feet/s^2 to m/s^2 
-            highD_columns[NC_dict[NC.PRECEDING_ID]] = NC.PRECEDING_ID 
-            highD_columns[NC_dict[NC.FOLLOWING_ID]] = NC.FOLLOWING_ID
             highD_columns[NC_dict[NC.TOTAL_FRAME]] = NC.TOTAL_FRAME
             
             # Transformed Columns
@@ -69,7 +69,22 @@ class NGSIM2HighD:
             # To dataframe
             transformed_ngsim = pandas.DataFrame(data = ngsim_array, columns = highD_columns)
             transformed_ngsim = transformed_ngsim.sort_values([HC.TRACK_ID, HC.FRAME], ascending=[1,1])
-            transformed_ngsim.to_csv(self.ngsim_csv_file_dir+traj_file+'_transformed.csv', index=False)
+            transformed_ngsim.to_csv(self.ngsim_csv_file_dir + "track_" + traj_file, index=False)
+
+    def correct_vehicle_ids(self, ngsim_data, NC_dict):
+        row_num = ngsim_data.shape[0]
+        prev_id = -1
+        correct_id = 1
+        for row_itr in range(row_num):
+            current_id = ngsim_data[row_itr, NC_dict[NC.ID]]
+            if  current_id != prev_id:
+                selected_ind = np.logical_and(ngsim_data[:, NC_dict[NC.ID]]== current_id, np.arange(row_num)>=row_itr)
+                ngsim_data[selected_ind, NC_dict[NC.ID]] = correct_id
+                prev_id = correct_id
+                correct_id +=1
+            else:
+                continue
+        return ngsim_data
 
     def transform_frame_features(self, ngsim_data, NC_dict, logging = True):
         """
@@ -195,8 +210,8 @@ class NGSIM2HighD:
         # TODO:  Export following meta features from NGSIM:
         #  TRAVELED_DISTANCE, MIN_X_VELOCITY, MAX_X_VELOCITY, MEAN_X_VELOCITY, MIN_DHW, MIN_THW, MIN_TTC, NUMBER_LANE_CHANGES
         for i,traj_file in enumerate(self.files):
-            ngsim_transformed = pandas.read_csv(self.ngsim_csv_file_dir + traj_file + '_transformed.csv')
-            static_columns = [HC.TRACK_ID, HC.INITIAL_FRAME, HC.FINAL_FRAME, HC.NUM_FRAMES, NC.CLASS, HC.DRIVING_DIRECTION]
+            ngsim_transformed = pandas.read_csv(self.ngsim_csv_file_dir + "track_" + traj_file)
+            static_columns = [HC.TRACK_ID, HC.INITIAL_FRAME, HC.FINAL_FRAME, HC.NUM_FRAMES, HC.DRIVING_DIRECTION]
             ngsim_transformed = ngsim_transformed.sort_values(by=[HC.TRACK_ID])
             track_id_list = ngsim_transformed[HC.TRACK_ID].unique()
             ngsim_columns = ngsim_transformed.columns
@@ -211,9 +226,8 @@ class NGSIM2HighD:
                 initial_frame = min(cur_track_data[:,HC_dict[HC.FRAME]])
                 final_frame = max(cur_track_data[:,HC_dict[HC.FRAME]])
                 num_frame = final_frame - initial_frame
-                v_class = cur_track_data[0, HC_dict[NC.CLASS]]
                 driving_dir = 2
-                static_data[itr,:] = [track_id, initial_frame, final_frame, num_frame, v_class, driving_dir]
+                static_data[itr,:] = [track_id, initial_frame, final_frame, num_frame, driving_dir]
 
             static = pandas.DataFrame(data = static_data, columns = static_columns)
             static.to_csv(self.ngsim_csv_file_dir + 'static_'+traj_file, index = False)
@@ -221,7 +235,7 @@ class NGSIM2HighD:
         # TODO: Export following meta features from NGSIM:
         #  SPEED_LIMIT, MONTH, WEEKDAY, START_TIME, DURATION, TOTAL_DRIVEN_DISTANCE, TOTAL_DRIVEN_TIME, N_CARS, N_TRUCKS
         for ind,traj_file in enumerate(self.files):
-            ngsim_transformed = pandas.read_csv(self.ngsim_csv_file_dir + traj_file + '_transformed.csv')
+            ngsim_transformed = pandas.read_csv(self.ngsim_csv_file_dir + "track_" + traj_file)
             meta_columns = [HC.ID, HC.FRAME_RATE, HC.LOCATION_ID, HC.N_VEHICLES, HC.UPPER_LANE_MARKINGS, HC.LOWER_LANE_MARKINGS]
             ngsim_transformed = ngsim_transformed.sort_values(by=[HC.LANE_ID])
             max_lane = int(ngsim_transformed[HC.LANE_ID].max())
