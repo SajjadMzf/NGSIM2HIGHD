@@ -263,15 +263,15 @@ class NGSIM2HighD:
                 lower_lanes[lane] = average_y[lane-1] + (average_y[lane] - average_y[lane-1])/2
             lower_lanes[0] = lower_lanes[1] - 2*(lower_lanes[1] - average_y[0])
             lower_lanes[-1] = lower_lanes[-2] + 2*(average_y[-1] - lower_lanes[-2])
-            upper_lane = np.array([lower_lanes[-1]])
+            upper_lanes = np.array([lower_lanes[-1]])
             print("Estimated Lower Lane Markings: {}".format(lower_lanes))
             # Note: Upper lanes are not recorded in NGSIM, we arbitrary set some values to them.
             meta_data = np.array([ind, 10, ind, len(ngsim_transformed[HC.TRACK_ID].unique()), 0, 0])
             print(meta_data)
             meta = pandas.DataFrame(data = [meta_data], columns = meta_columns)
             meta = meta.astype(object)
-            meta.iloc[0,-2] = upper_lane
-            meta.iloc[0,-1] = lower_lanes
+            meta.iloc[0,-2] = ';'.join([str(lane_mark) for lane_mark in upper_lanes])
+            meta.iloc[0,-1] = ';'.join([str(lane_mark) for lane_mark in lower_lanes])
             meta.to_csv(self.ngsim_csv_file_dir + 'meta_'+traj_file, index = False)
         
     
