@@ -4,9 +4,8 @@ import numpy as np
 import HighD_Columns as HC 
 import NGSIM_Columns as NC 
 class NGSIM2HighD:
-    def __init__(self,ngsim_csv_file_dir, ngsim_export_dir, files):
+    def __init__(self,ngsim_csv_file_dir, files):
         self.ngsim_csv_file_dir = ngsim_csv_file_dir
-        self.ngsim_export_dir = ngsim_export_dir
         self.files = files
         self.ngsim = []
         
@@ -245,16 +244,6 @@ class NGSIM2HighD:
             for column in columns:
                 print("{}=> Min: {}, Max:{}".format(column, ngsim_transformed[column].min(), ngsim_transformed[column].max()))
 
-    def correct_frame_origin(self):
-        for ind,traj_file in enumerate(self.files):
-            ngsim_transformed = pandas.read_csv(self.ngsim_csv_file_dir + "track_" + traj_file)
-            min_frame = ngsim_transformed[HC.FRAME].min()
-            sorted_ = sorted(ngsim_transformed[HC.FRAME].unique())
-            print("MAX: {}, Length:{}".format(max(sorted_), len(sorted_)))
-            #print(sorted(ngsim_transformed[HC.FRAME].unique()))
-            print("Min Frame: {}".format(min_frame))
-            #ngsim_transformed[HC.FRAME] = ngsim_transformed[HC.FRAME].apply(lambda x: x-min_frame+1)
-            #ngsim_transformed.to_csv(self.ngsim_csv_file_dir + "track_" + traj_file, index = False)
             
     def convert_meta_info(self):
         # TODO: Export following meta features from NGSIM:
