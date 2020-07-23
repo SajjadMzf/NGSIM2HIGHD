@@ -91,7 +91,8 @@ class NGSIM2HighD:
     def transform_frame_features(self, ngsim_data, NC_dict, logging = True):
         """
         * Frames should start from 1
-        * Transform from feet to meter. 
+        * Transform from feet to meter.
+        * Change X and Y location from front center of vehicle to center. 
         * Reverse the order of Lane IDs
         * Extract vehicle IDs of surrounding vehicles.
         """
@@ -118,7 +119,9 @@ class NGSIM2HighD:
         ngsim_data[:,NC_dict[NC.VELOCITY]] = 0.3048 * ngsim_data[:,NC_dict[NC.VELOCITY]]
         ngsim_data[:,NC_dict[NC.ACCELERATION]] = 0.3048 * ngsim_data[:,NC_dict[NC.ACCELERATION]]
         ngsim_data[:,NC_dict[NC.DHW]] = 0.3048 * ngsim_data[:,NC_dict[NC.DHW]]
-        # Change order of lane numbers
+        # Change Y from front of vehicle to center
+        ngsim_data[:,NC_dict[NC.Y]] = ngsim_data[:,NC_dict[NC.Y]] - ngsim_data[:,NC_dict[NC.LENGTH]]/2
+        #  Change order of lane numbers
 
         augmented_features = np.zeros((ngsim_data.shape[0], 8))
         all_frames = sorted(list(set(ngsim_data[:,NC_dict[NC.FRAME]])))
