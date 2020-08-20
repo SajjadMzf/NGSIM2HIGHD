@@ -3,11 +3,17 @@ import pandas
 import numpy as np
 import HighD_Columns as HC 
 import NGSIM_Columns as NC 
+
+
 class NGSIM2HighD:
     def __init__(self,ngsim_csv_file_dir, files):
         self.ngsim_csv_file_dir = ngsim_csv_file_dir
         self.files = files
         self.ngsim = []
+        self.us101 = [
+            'trajectories-0750am-0805am.csv',
+            'trajectories-0805am-0820am.csv',
+            'trajectories-0820am-0835am.csv']
         
 
 
@@ -34,10 +40,9 @@ class NGSIM2HighD:
             NC_dict = {}
             for i,c in enumerate(ngsim_columns):
                 NC_dict[c] = i
-            # The vehicles' IDs are not continuous in NGSIM dataset
-            ngsim_array = self.correct_vehicle_ids(ngsim_array, NC_dict)
+            
 
-            ngsim_array, SVC_dict = self.transform_frame_features(ngsim_array, NC_dict)
+            ngsim_array, SVC_dict = self.transform_frame_features(ngsim_array, NC_dict, us101= (traj_file in self.us101))
             
             highD_columns = [None]* (len(ngsim_columns) + len(SVC_dict))
             # Untransformed Columns
@@ -87,13 +92,16 @@ class NGSIM2HighD:
                 continue
         return ngsim_data
 
-    def transform_frame_features(self, ngsim_data, NC_dict, logging = True):
+    def transform_frame_features(self, ngsim_data, NC_dict, us101, logging = True):
         """
+        * Remove merging lanes
+        * Remove Motor Cycles
+        * Correct Vehicles ID
         * Frames should start from 1
         * Transform from feet to meter.
         * Change X and Y location from front center of vehicle to center. 
-        * Reverse the order of Lane IDs
         * Extract vehicle IDs of surrounding vehicles.
+        
         """
         SVC_dict = {
             HC.PRECEDING_ID:0,
@@ -105,9 +113,17 @@ class NGSIM2HighD:
             HC.RIGHT_ALONGSIDE_ID:6,
             HC.RIGHT_FOLLOWING_ID:7
         }
-
+        # Remove Motor cycles
+        ngsim_data = ngsim_data[ngsim_data[:,NC_dict[NC.CLASS]] != 1,:]
+        # The vehicles' IDs are not continuous in NGSIM dataset
+        ngsim_data = self.correct_vehicle_ids(ngsim_data, NC_dict)
+        
         sorted_ind = np.argsort(ngsim_data[:,NC_dict[NC.FRAME]])
         ngsim_data = ngsim_data[sorted_ind]
+        # Remove merging lane
+        if us101:
+            ngsim_data[ngsim_data[:,NC_dict[NC.LANE_ID]]>6,NC_dict[NC.LANE_ID]] = 6
+        
         # Change frame origins to 1
         ngsim_data[:,NC_dict[NC.FRAME]] = ngsim_data[:,NC_dict[NC.FRAME]] - min(ngsim_data[:,NC_dict[NC.FRAME]]) + 1
         # Feet => meter
@@ -120,8 +136,7 @@ class NGSIM2HighD:
         ngsim_data[:,NC_dict[NC.DHW]] = 0.3048 * ngsim_data[:,NC_dict[NC.DHW]]
         # Change Y from front of vehicle to center
         ngsim_data[:,NC_dict[NC.Y]] = ngsim_data[:,NC_dict[NC.Y]] - ngsim_data[:,NC_dict[NC.LENGTH]]/2
-        #  Change order of lane numbers
-
+        
         augmented_features = np.zeros((ngsim_data.shape[0], 8))
         all_frames = sorted(list(set(ngsim_data[:,NC_dict[NC.FRAME]])))
         max_itr = len(all_frames)
@@ -259,7 +274,7 @@ class NGSIM2HighD:
             for i,c in enumerate(ngsim_columns):
                 HC_dict[c] = i
             
-            lower_lanes = np.zeros((max_lane+1))
+            lower_lanes = np.zeros((max_lane+2))
             average_y = np.zeros((max_lane))
             min_y = np.zeros((max_lane))
             max_y = np.zeros((max_lane))
@@ -276,7 +291,9 @@ class NGSIM2HighD:
                     continue
                 lower_lanes[lane] = average_y[lane-1] + (average_y[lane] - average_y[lane-1])/2
             lower_lanes[0] = lower_lanes[1] - 2*(lower_lanes[1] - average_y[0])
-            lower_lanes[-1] = lower_lanes[-2] + 2*(average_y[-1] - lower_lanes[-2])
+            lower_lanes[-2] = lower_lanes[-3] + 2*(average_y[-1] - lower_lanes[-3])
+            lower_lanes[-1] = lower_lanes[-2] + 3*(average_y[-1] - lower_lanes[-3])
+            
             upper_lanes = np.array([lower_lanes[-1], lower_lanes[-1]])
             print("Estimated Lower Lane Markings: {}".format(lower_lanes))
             # Note: Upper lanes are not recorded in NGSIM, we arbitrary set some values to them.
@@ -288,4 +305,52 @@ class NGSIM2HighD:
             meta.iloc[0,-1] = ';'.join([str(lane_mark) for lane_mark in lower_lanes])
             meta.to_csv(self.ngsim_csv_file_dir + 'meta_'+traj_file, index = False)
         
-    
+    def infer_lane_marking(self):
+        for i,traj_file in enumerate(self.files):
+            meta = pandas.read_csv(self.ngsim_csv_file_dir + 'meta_'+traj_file)
+            ngsim_transformed = pandas.read_csv(self.ngsim_csv_file_dir + "track_" + traj_file)
+            ngsim_transformed = ngsim_transformed.sort_values(by=[HC.TRACK_ID, HC.FRAME])
+            max_lane = int(ngsim_transformed[HC.LANE_ID].max())
+            lane_locs = [[] for i in range(max_lane-1)]
+            track_id_list = ngsim_transformed[HC.TRACK_ID].unique()
+            ngsim_columns = ngsim_transformed.columns
+            ngsim_array = ngsim_transformed.to_numpy()
+            HC_dict = {}
+            for i,c in enumerate(ngsim_columns):
+                HC_dict[c] = i
+            for itr, track_id in enumerate(track_id_list):
+                cur_track_data = ngsim_array[ngsim_array[:, HC_dict[HC.TRACK_ID]]==track_id] 
+                initial_lane = cur_track_data[0, HC_dict[HC.LANE_ID]]
+                new_lane_ind = np.ones_like(cur_track_data[:, HC_dict[HC.LANE_ID]], dtype=np.bool)
+                print(track_id)
+                for i in range(len(cur_track_data[:, HC_dict[HC.LANE_ID]])):
+                    print("{}:{}:{}".format(i,cur_track_data[i, HC_dict[HC.LANE_ID]],cur_track_data[i, HC_dict[HC.Y]]))
+                #print("Lane: {}".format(cur_track_data[:, HC_dict[HC.LANE_ID]]))
+                #print("Vehicle Lateral position: {}".format(cur_track_data[:, HC_dict[HC.Y]]))
+                if track_id == 320:
+                    a = 2
+                while np.any(np.logical_and(np.not_equal(cur_track_data[:, HC_dict[HC.LANE_ID]], initial_lane), new_lane_ind)):
+                    cur_lane = initial_lane
+                    lc_ind = np.nonzero(np.logical_and(np.not_equal(cur_track_data[:, HC_dict[HC.LANE_ID]], initial_lane), new_lane_ind))[0][0]
+                    new_lane_ind = np.arange(cur_track_data.shape[0])>=lc_ind
+                    #np.logical_and(new_lane_ind, (np.not_equal(cur_track_data[:, HC_dict[HC.LANE_ID]], initial_lane)))
+                    if cur_lane == 1 and cur_track_data[lc_ind, HC_dict[HC.Y]]>3.7:
+                        a =  2
+                    if cur_lane == 1 and cur_track_data[lc_ind, HC_dict[HC.Y]]<2.8:
+                        a =  2
+                    
+                    if cur_track_data[lc_ind, HC_dict[HC.LANE_ID]]>cur_lane:
+                        lane_locs[int(cur_lane)-1].append(cur_track_data[lc_ind, HC_dict[HC.Y]])
+                    else:
+                        lane_locs[int(cur_lane)-2].append(cur_track_data[lc_ind, HC_dict[HC.Y]])
+                    initial_lane = cur_track_data[lc_ind, HC_dict[HC.LANE_ID]]
+            diff =0
+            for lane_id, lane_loc in enumerate(lane_locs):
+                diff += max(lane_loc)-min(lane_loc)
+                print("Lane: {}, Min Y: {}, Max Y: {}, Mean Y: {}, Median Y: {}".format(
+                    lane_id+1, min(lane_loc), max(lane_loc), sum(lane_loc)/len(lane_loc), np.median(np.array(lane_loc))
+                ))
+            diff = diff/len(lane_locs)
+            print("Different in lateral position:{}".format(diff))
+
+                    
